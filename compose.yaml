@@ -1,0 +1,20 @@
+services:
+  pharos:
+    build: .
+    restart: unless-stopped
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    tmpfs:
+      - /tmp
+    volumes:
+      - ./pharos.json:/config/pharos.json:ro
+      - pharos-state:/data
+    # Pass only the variables needed by your configured notification channels.
+    environment:
+      PHAROS_NTFY_TOKEN: ${PHAROS_NTFY_TOKEN:-}
+      PHAROS_SMTP_PASSWORD: ${PHAROS_SMTP_PASSWORD:-}
+volumes:
+  pharos-state:

@@ -1,0 +1,12 @@
+.git
+.venv
+.env*
+pharos.json
+state
+__pycache__
+*.egg-info
+dist
+build
+
+.ruff_cache
+**/__pycache__

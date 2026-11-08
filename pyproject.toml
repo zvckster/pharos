@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pharos-release"
+version = "0.1.0"
+description = "Stable release alerts for self-hosted software, without rebuild noise"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+keywords = ["self-hosted", "releases", "notifications", "docker", "monitoring"]
+classifiers = ["Development Status :: 3 - Alpha", "Programming Language :: Python :: 3", "Operating System :: POSIX :: Linux"]
+
+[project.scripts]
+pharos = "pharos.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[project.optional-dependencies]
+dev = ["ruff"]
+
+[tool.ruff]
+target-version = "py311"
+line-length = 120
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "B", "UP", "I"]

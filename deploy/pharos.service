@@ -1,0 +1,21 @@
+[Unit]
+Description=Pharos stable release monitoring
+Wants=network-online.target
+After=network-online.target
+[Service]
+Type=oneshot
+User=pharos
+Group=pharos
+WorkingDirectory=/etc/pharos
+Environment=PHAROS_STATE_DIR=/var/lib/pharos
+EnvironmentFile=-/etc/pharos/notifications.env
+ExecStart=/opt/pharos/venv/bin/pharos check --config /etc/pharos/pharos.json --notify
+StateDirectory=pharos
+StateDirectoryMode=0700
+UMask=0077
+TimeoutStartSec=25min
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
