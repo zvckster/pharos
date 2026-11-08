@@ -141,7 +141,11 @@ class StateAndEngine(unittest.TestCase):
             write_json(path, state)
             before = path.read_bytes()
             with (
-                patch.object(engine, "inspect", return_value=(RELEASE, "1.0.0", {})),
+                patch.object(
+                    engine,
+                    "inspect",
+                    return_value=(RELEASE, "1.0.0", {"identity": "fixture", "checked_at": 0, "release": RELEASE}),
+                ),
                 patch.object(notifications, "send") as send,
             ):
                 report = engine.run({"checks": [CHECK]}, directory, dry_run=True, notify=True)
@@ -172,7 +176,11 @@ class StateAndEngine(unittest.TestCase):
                 self.assertEqual(durable["pending"][0]["id"], event["id"])
 
             with (
-                patch.object(engine, "inspect", return_value=(RELEASE, "1.0.0", {})),
+                patch.object(
+                    engine,
+                    "inspect",
+                    return_value=(RELEASE, "1.0.0", {"identity": "fixture", "checked_at": 0, "release": RELEASE}),
+                ),
                 patch.object(notifications, "send", side_effect=send) as deliver,
             ):
                 report = engine.run(
@@ -295,7 +303,11 @@ class DetectionAndConfig(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "config.json"
             path.write_text(json.dumps({"schema_version": 1, "checks": [CHECK]}))
-            with patch.object(engine, "inspect", return_value=(RELEASE, "1.0.0", {})):
+            with patch.object(
+                engine,
+                "inspect",
+                return_value=(RELEASE, "1.0.0", {"identity": "fixture", "checked_at": 0, "release": RELEASE}),
+            ):
                 self.assertEqual(main(["check", "--config", str(path), "--state-dir", directory]), 0)
             self.assertTrue((Path(directory) / "latest.json").exists())
 

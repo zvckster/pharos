@@ -5,6 +5,7 @@ import json
 import os
 import smtplib
 import ssl
+import urllib.error
 import urllib.request
 
 
@@ -88,29 +89,45 @@ def send(channel, event):
             headers["Authorization"] = "Bearer " + token
         payload = {"schema_version": 1, **{k: v for k, v in event.items() if k != "delivered"}, "message": text}
     request = urllib.request.Request(url, data=json.dumps(payload).encode(), headers=headers, method="POST")
-    with urllib.request.build_opener(NoRedirect()).open(request, timeout=20) as response:
-        if not 200 <= response.status < 300:
-            raise RuntimeError("Notification endpoint rejected delivery")
+    try:
+        with urllib.request.build_opener(NoRedirect()).open(request, timeout=20) as response:
+            if not 200 <= response.status < 300:
+                raise RuntimeError("Notification endpoint rejected delivery")
+    except urllib.error.HTTPError as error:
+        error.close()
+        raise
 
 
 def deliver(state, channels, persist):
     errors = []
+    configured = {channel["id"]: channel for channel in channels}
     for event in state["pending"]:
-        for channel in channels:
-            if channel["id"] in event["delivered"]:
+        # Bind legacy/unrouted events on their first delivery attempt. Once bound,
+        # removing a channel cannot silently discard its outstanding delivery.
+        if not event.get("targets") and configured:
+            event["targets"] = list(configured)
+            persist(state)
+        for ident in event.get("targets", []):
+            if ident in event["delivered"]:
+                continue
+            if ident not in configured:
+                errors.append(
+                    {"channel": ident, "error": "Target channel is not configured; pending delivery retained"}
+                )
                 continue
             try:
-                send(channel, event)
+                send(configured[ident], event)
             except Exception:
-                # Exception text can contain server URLs, passwords or response bodies.
                 errors.append(
-                    {"channel": channel["id"], "error": "Delivery failed; check endpoint, credentials and connectivity"}
+                    {"channel": ident, "error": "Delivery failed; check endpoint, credentials and connectivity"}
                 )
             else:
-                event["delivered"].append(channel["id"])
+                event["delivered"].append(ident)
                 persist(state)
-    # Preserve pending events when channels are temporarily removed or disabled.
-    active = {channel["id"] for channel in channels}
-    state["pending"] = [event for event in state["pending"] if not active or not active.issubset(event["delivered"])]
+    state["pending"] = [
+        event
+        for event in state["pending"]
+        if not event.get("targets") or not set(event["targets"]).issubset(event["delivered"])
+    ]
     persist(state)
     return errors

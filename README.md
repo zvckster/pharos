@@ -8,13 +8,15 @@ Pharos watches official software releases and tells you when a new stable versio
 
 A container image can change several times without a new application release. Pharos follows upstream release versions, so those rebuilds stay quiet. It works with containers and native packages.
 
-**Status: early alpha, version 0.1.0.** The core policy grew from a working personal-server monitor. This standalone implementation is new and needs broader testing. It does not upgrade software. No hosted service or account is required.
+**Status: early alpha, version 0.1.1.** The core policy grew from a working personal-server monitor. This standalone implementation is new and needs broader testing. It does not upgrade software. No hosted service or account is required.
 
 ## Quick start
 
-Requires Python 3.11+ on Linux. There are no runtime Python dependencies.
+Requires Python 3.11+ on Linux. The container uses Python 3.15; CI also checks the Python 3.16 development branch. There are no runtime Python dependencies.
 
 ```sh
+git clone https://github.com/zvckster/pharos.git
+cd pharos
 python3 -m venv .venv
 .venv/bin/pip install .
 cp examples/pharos.json pharos.json
@@ -104,7 +106,7 @@ GitHub's anonymous API limit is low. Use an environment-backed read token for la
 
 Docker detection defaults to `org.opencontainers.image.version`. With `use_tag`, use explicit version tags; floating tags remain unknown. Image labels can be inaccurate: select a reliable custom label, use an explicit command, or mark the installed version unknown. Pharos does not infer application versions from commit hashes or image digests.
 
-Commands run without a shell, with a timeout, as the Pharos user. For an app inside a container:
+Commands run without a shell, with a 20-second timeout and a 1 MiB combined stdout/stderr limit, as the Pharos user. Pharos terminates the process group on timeout or excess output. Empty stdout falls back to stderr for programs that print versions there. Ambiguous output containing multiple dotted versions requires a capture pattern. For an app inside a container:
 
 ```json
 {"type": "command", "argv": ["docker", "exec", "app", "app", "--version"], "pattern": "app v([0-9.]+)"}
@@ -129,20 +131,20 @@ Webhook POST bodies include `schema_version`, event `id`, `title`, `changes`, an
 {"id": "chat", "type": "webhook", "url": "https://hooks.example.org/releases", "token_env": "PHAROS_WEBHOOK_TOKEN"}
 ```
 
-Pending events are persisted before delivery. Each successful channel is acknowledged separately; later checks retry only failed channels. **Delivery is at least once:** a crash after a remote service accepts a message but before local acknowledgement can cause a duplicate. SMTP partial recipient acceptance can also cause duplicates on retry. Exactly-once network delivery is not promised. Removing a channel while an event is pending changes the active delivery set; avoid editing channel IDs during an incident.
+Pending events are persisted before delivery. Each successful channel is acknowledged separately; later checks retry only failed channels. **Delivery is at least once:** a crash after a remote service accepts a message but before local acknowledgement can cause a duplicate. SMTP partial recipient acceptance can also cause duplicates on retry. Exactly-once network delivery is not promised. Each event snapshots its target channel IDs. Removing a target preserves its undelivered notification and reports a delivery error until that channel is restored. New channels do not receive old events that already have targets. Events queued with no channels bind to the configured destinations on their first delivery attempt. Keep channel IDs stable; changing an endpoint under an existing ID affects its outstanding deliveries.
 
 ## Alert policy and state
 
 - First observation of each source establishes a quiet baseline.
 - Each new, higher stable version produces one release event, grouped with other changes from the check.
-- Already installed versions, prereleases, same-version rebuilds, rollbacks and previously seen versions are silent.
+- Already installed versions, prereleases, same-version rebuilds, rollbacks and previously seen versions are silent. A version below the highest previously observed release cannot become a new-release alert after a rollback.
 - Changing a source definition establishes a new baseline for that check.
 - `notify: false` keeps an app report-only.
 - Unknown installed versions are labeled unknown, never current.
 - Failures appear in reports and produce a nonzero check exit code. Three consecutive incomplete runs queue one diagnostic notification per incident.
 - There are no automatic updates, pulls, restarts or release-download executions.
 
-`state.json` stores source cache, observed release history and pending notification acknowledgements. Preserve it across upgrades and container recreation. Losing it creates a fresh quiet baseline. Corrupt or unknown state schemas cause an error rather than resetting state. Atomic writes, disk synchronization and a process lock protect against partial files and overlapping checks. Use a local Linux filesystem; distributed locks and Windows are unsupported.
+`state.json` stores source cache, observed release history and pending notification acknowledgements. Preserve it across upgrades and container recreation. Losing it creates a fresh quiet baseline. Corrupt or unknown state schemas, invalid nested observations, malformed caches and damaged pending events cause a controlled error rather than resetting state. Atomic writes, disk synchronization and a process lock protect against partial files and overlapping checks. Use a local Linux filesystem; distributed locks and Windows are unsupported.
 
 `latest.json` distinguishes `current`, `behind`, `ahead`, `unknown`, `manual` and `error`. It includes release links, new changes and pending delivery count. Reports and state use private file permissions. No notification credentials are written to either.
 
@@ -184,7 +186,11 @@ python3 -m venv .venv
 .venv/bin/python -m unittest discover -s tests -v
 ```
 
-Tests use synthetic feeds, mocked SMTP and a local HTTP receiver; they never notify real recipients. CI tests Python 3.11–3.13, builds a wheel, checks the example catalogue and builds the container. See [CONTRIBUTING.md](CONTRIBUTING.md) for provider contributions and [SECURITY.md](SECURITY.md) for the trust model.
+Tests use synthetic feeds, mocked SMTP and a local HTTP receiver; they never notify real recipients. CI tests Python 3.11–3.15, checks Python 3.16 development builds in an experimental job, builds a wheel, checks the example catalogue and builds the container. Weekly CI tracks future runtime changes. See [the runtime decision](docs/architecture.md) for the Python/Go assessment. See [CONTRIBUTING.md](CONTRIBUTING.md) for provider contributions and [SECURITY.md](SECURITY.md) for the trust model.
+
+## Upgrading from 0.1.0
+
+Preserve `state.json` and upgrade the package or rebuild the container. Version parsing changed in 0.1.1, so source caches and upstream observations establish a fresh quiet baseline once; pending notification deliveries are preserved and legacy events bind targets on first delivery. This prevents versions misclassified by the old parser from poisoning future comparisons. Do not delete the state file to upgrade.
 
 ## Scope and roadmap
 

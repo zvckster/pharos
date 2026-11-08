@@ -7,12 +7,13 @@ import json
 from pathlib import Path
 
 from . import detectors, notifications, sources
+from .errors import CheckError
 from .storage import read_state, write_json
 from .version import newer
 
 
 def observe(state, check, release, installed):
-    identity = hashlib.sha256(json.dumps(check["source"], sort_keys=True).encode()).hexdigest()
+    identity = sources.identity(check["source"])
     previous = state["checks"].get(check["id"], {})
     if previous.get("identity") != identity:
         previous = {}
@@ -20,9 +21,20 @@ def observe(state, check, release, installed):
     seen = previous.get("seen", [])
     old = previous.get("latest")
     change = None
-    if old and version not in seen and newer(version, old) and check.get("notify", True):
+    if (
+        old
+        and version not in seen
+        and all(newer(version, known) for known in [old, *seen])
+        and check.get("notify", True)
+    ):
         if installed is None or newer(version, installed):
-            change = {"id": check["id"], "name": check.get("name", check["id"]), "installed": installed, **release}
+            change = {
+                "id": check["id"],
+                "name": check.get("name", check["id"]),
+                "installed": installed,
+                "source_identity": identity,
+                **release,
+            }
     if version not in seen:
         seen.append(version)
     state["checks"][check["id"]] = {"identity": identity, "latest": version, "seen": seen}
@@ -30,7 +42,11 @@ def observe(state, check, release, installed):
 
 
 def event(changes):
-    identity = hashlib.sha256(json.dumps(sorted((c["id"], c["version"]) for c in changes)).encode()).hexdigest()[:24]
+    identity = hashlib.sha256(
+        json.dumps(
+            sorted((c["id"], c["version"], c.get("source_identity", c.get("url", ""))) for c in changes)
+        ).encode()
+    ).hexdigest()[:24]
     title = (
         f"{changes[0]['name']} {changes[0]['version']} released"
         if len(changes) == 1
@@ -82,13 +98,22 @@ def run(config, directory, dry_run=False, notify=False, force=False):
                     change = observe(state, check, release, installed)
                     if change:
                         changes.append(change)
-                except Exception:
+                except Exception as error:
                     # Avoid leaking command output or private feed URLs in reports.
                     row["status"] = "error"
-                    errors.append({"check": check["id"], "error": "Release or installed-version check failed"})
+                    errors.append(
+                        {
+                            "check": check["id"],
+                            "error": str(error)
+                            if isinstance(error, CheckError)
+                            else "Release or installed-version check failed (" + type(error).__name__ + ")",
+                        }
+                    )
             checks.append(row)
     if changes:
-        state["pending"].append(event(changes))
+        batch = event(changes)
+        batch["targets"] = [channel["id"] for channel in config.get("notifications", [])]
+        state["pending"].append(batch)
     state["failed_runs"] = state.get("failed_runs", 0) + 1 if errors else 0
     if errors and state["failed_runs"] >= 3 and not state.get("degraded"):
         ident = hashlib.sha256(datetime.datetime.now(datetime.UTC).isoformat().encode()).hexdigest()[:24]
@@ -97,6 +122,7 @@ def run(config, directory, dry_run=False, notify=False, force=False):
                 "id": ident,
                 "title": "Pharos checks need attention",
                 "diagnostic": True,
+                "targets": [channel["id"] for channel in config.get("notifications", [])],
                 "message": "Three consecutive checks were incomplete. Review latest.json for failing check IDs.",
                 "delivered": [],
             }

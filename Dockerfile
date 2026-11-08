@@ -1,4 +1,4 @@
-FROM python:3.12-slim
+FROM python:3.15-slim
 ENV PYTHONUNBUFFERED=1 PYTHONDONTWRITEBYTECODE=1 PHAROS_STATE_DIR=/data PHAROS_CONFIG=/config/pharos.json
 WORKDIR /app
 COPY pyproject.toml README.md LICENSE ./

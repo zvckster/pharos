@@ -2,24 +2,36 @@ name: CI
 on:
   push:
   pull_request:
+  schedule:
+    - cron: '17 5 * * 1'
+  workflow_dispatch:
 permissions:
   contents: read
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+    continue-on-error: ${{ matrix.experimental }}
     strategy:
       fail-fast: false
       matrix:
-        python: ['3.11', '3.12', '3.13']
+        include:
+          - {python: '3.11', experimental: false}
+          - {python: '3.12', experimental: false}
+          - {python: '3.13', experimental: false}
+          - {python: '3.14', experimental: false}
+          - {python: '3.15', experimental: false}
+          - {python: '3.16-dev', experimental: true}
     steps:
       - uses: actions/checkout@v7.0.1
       - uses: actions/setup-python@v7.1.0
         with:
           python-version: ${{ matrix.python }}
+          allow-prereleases: true
       - run: python -m pip install ".[dev]"
       - run: ruff check src tests
       - run: ruff format --check src tests
-      - run: python -m unittest discover -s tests -v
+      - run: python -W error -m unittest discover -s tests -v
       - run: pharos validate --config examples/pharos.json
       - run: python -m pip wheel --no-deps --wheel-dir dist .
   container:

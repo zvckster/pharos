@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "pharos-release"
-version = "0.1.0"
+version = "0.1.1"
 description = "Stable release alerts for self-hosted software, without rebuild noise"
 readme = "README.md"
 requires-python = ">=3.11"

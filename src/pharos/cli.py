@@ -79,7 +79,7 @@ def main(argv=None):
         return result
     except KeyboardInterrupt:
         return 130
-    except (OSError, ValueError, RuntimeError, KeyError, TypeError):
+    except (OSError, ValueError, RuntimeError, KeyError, TypeError, RecursionError):
         print(
             "Pharos failed: check configuration, state integrity, file permissions or process lock. Existing state was preserved where possible.",
             file=sys.stderr,

@@ -9,9 +9,17 @@ import urllib.request
 from urllib.parse import urlsplit
 
 from .config import https_url
+from .errors import CheckError
 from .version import canonical, key
 
 LIMIT = 4 * 1024 * 1024
+VERSION_POLICY = 2
+
+
+def identity(source):
+    """Invalidate old parsing-policy caches and establish a quiet upgrade baseline."""
+    payload = {"source": source, "version_policy": VERSION_POLICY}
+    return hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
 
 
 class SafeRedirect(urllib.request.HTTPRedirectHandler):
@@ -26,7 +34,7 @@ class SafeRedirect(urllib.request.HTTPRedirectHandler):
 
 def fetch(url, etag=None, token=None):
     https_url(url)
-    headers = {"User-Agent": "pharos-release/0.1.0", "Accept": "application/json"}
+    headers = {"User-Agent": "pharos-release/0.1.1", "Accept": "application/json"}
     if etag:
         headers["If-None-Match"] = etag
     if token:
@@ -36,15 +44,16 @@ def fetch(url, etag=None, token=None):
         with urllib.request.build_opener(SafeRedirect()).open(request, timeout=15) as response:
             data = response.read(LIMIT + 1)
             if len(data) > LIMIT:
-                raise ValueError("Release response exceeds 4 MiB")
+                raise CheckError("Release response exceeds 4 MiB")
             return json.loads(data), response.headers.get("ETag")
     except urllib.error.HTTPError as error:
+        error.close()
         if error.code == 304:
             return None, etag
         # Do not expose authenticated URLs, response bodies or headers.
-        raise RuntimeError(f"Release source returned HTTP {error.code}") from None
+        raise CheckError(f"Release source returned HTTP {error.code}") from None
     except urllib.error.URLError:
-        raise RuntimeError("Release source connection failed") from None
+        raise CheckError("Release source connection failed") from None
 
 
 def parse(source, data):
@@ -59,10 +68,12 @@ def parse(source, data):
         ):
             continue
         tag = entry.get(source.get("version_field", "tag_name"))
-        version = canonical(tag)
+        version = canonical(tag, allow_revision=False)
         if not version or ("major" in source and int(version.split(".")[0]) != source["major"]):
             continue
-        url = entry.get("html_url") or entry.get("_links", {}).get("self") or entry.get("url") or source.get("url", "")
+        links = entry.get("_links")
+        links = links if isinstance(links, dict) else {}
+        url = entry.get("html_url") or links.get("self") or entry.get("url") or source.get("url", "")
         if url:
             https_url(url)
         releases.append(
@@ -74,7 +85,7 @@ def parse(source, data):
             }
         )
     if not releases:
-        raise ValueError("Source contains no supported stable numeric releases")
+        raise CheckError("Source contains no supported stable numeric releases")
     return max(releases, key=lambda release: key(release["version"]))
 
 
@@ -82,9 +93,9 @@ def latest(source, cache, force=False):
     kind = source["type"]
     url = f"https://api.github.com/repos/{source['repo']}/releases?per_page=100" if kind == "github" else source["url"]
     # Feed identity and policy changes cannot reuse a previous source's baseline.
-    identity = hashlib.sha256(json.dumps(source, sort_keys=True).encode()).hexdigest()
-    old = cache if cache.get("identity") == identity else {}
-    if not force and time.time() - old.get("checked_at", 0) < 3600:
+    source_id = identity(source)
+    old = cache if cache.get("identity") == source_id else {}
+    if not force and 0 <= time.time() - old.get("checked_at", 0) < 3600:
         return old["release"], old
     token = None
     if source.get("token_env"):
@@ -98,4 +109,4 @@ def latest(source, cache, force=False):
         release = old["release"]
     else:
         release = parse(source, data)
-    return release, {"identity": identity, "checked_at": time.time(), "etag": etag, "release": release}
+    return release, {"identity": source_id, "checked_at": time.time(), "etag": etag, "release": release}

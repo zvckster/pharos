@@ -10,7 +10,7 @@ Configuration is trusted: a command detector can execute arbitrary programs with
 
 Docker daemon access is effectively host administration access. A read-only socket bind mount does not restrict Docker API operations. The default container avoids mounting it; use a dedicated native installation for host detection or an independently configured API proxy.
 
-Release APIs are untrusted input. Pharos limits responses, validates HTTPS source URLs, rejects downgrade redirects, removes authentication on cross-host redirects and never runs downloaded release code. Socket timeouts are not whole-operation deadlines; production deployments should impose a run deadline as the systemd example does.
+Release APIs are untrusted input. Pharos limits responses, validates HTTPS source URLs, rejects downgrade redirects, removes authentication on cross-host redirects and never runs downloaded release code. Socket timeouts are not whole-operation deadlines; production deployments should impose a run deadline as the systemd example does. The container daemon currently needs an external supervisor for a strict whole-run deadline. Installed-version subprocesses have a total deadline and combined output limit; their process groups are killed and reaped on failure.
 
 Store credentials in dedicated environment variables and restrict service configuration files. Do not commit `.env`, personal catalogues, raw Docker inventory or state. Upstream release credentials and notification credentials are not stored in reports. Error messages intentionally avoid remote response bodies and authenticated URLs.
 
