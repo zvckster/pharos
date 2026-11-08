@@ -2,7 +2,7 @@
 
 Pharos 0.1.x is early alpha. Only the latest source revision receives fixes during this phase.
 
-Until a GitHub repository and private reporting channel are established, do not publish exploit details or real secrets in issues. A private reporting contact must be added before the project is publicly launched.
+Report vulnerabilities privately through [GitHub security advisories](https://github.com/zvckster/pharos/security/advisories/new). Do not publish exploit details or real secrets in public issues.
 
 ## Trust boundaries
 

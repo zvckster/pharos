@@ -251,6 +251,14 @@ class DetectionAndConfig(unittest.TestCase):
         with patch.object(detectors, "command", side_effect=values):
             self.assertIsNone(detectors.detect({"type": "docker", "container": "app"}))
 
+    def test_docker_major_only_tag_is_unknown(self):
+        values = [
+            json.dumps([{"Image": "sha256:abc", "Config": {"Image": "app:2"}}]),
+            json.dumps([{"Config": {"Labels": {}}}]),
+        ]
+        with patch.object(detectors, "command", side_effect=values):
+            self.assertIsNone(detectors.detect({"type": "docker", "container": "app", "use_tag": True}))
+
     def test_validate_duplicates_and_insecure_feed(self):
         with tempfile.TemporaryDirectory() as directory:
             path = Path(directory) / "config.json"

@@ -52,5 +52,7 @@ def detect(spec):
         raw = match.group(1)
     version = canonical(raw)
     if version is None:
+        if kind == "docker":
+            return None
         raise ValueError("Installed version has no supported stable numeric version")
     return version

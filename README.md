@@ -1,5 +1,7 @@
 # Pharos
 
+[![CI](https://github.com/zvckster/pharos/actions/workflows/ci.yml/badge.svg)](https://github.com/zvckster/pharos/actions/workflows/ci.yml)
+
 **Know what's released.**
 
 Pharos watches official software releases and tells you when a new stable version appears. It compares those releases with the software you run, groups notifications, and remembers what it has already announced.
