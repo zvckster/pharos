@@ -8,11 +8,12 @@ jobs:
   test:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
         python: ['3.11', '3.12', '3.13']
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-python@v7.1.0
         with:
           python-version: ${{ matrix.python }}
       - run: python -m pip install ".[dev]"
@@ -24,7 +25,7 @@ jobs:
   container:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7.0.1
       - run: docker build -t pharos:test .
       - run: docker run --rm pharos:test --version
       - run: docker run --rm -v "$PWD/examples/pharos.json:/config/pharos.json:ro" pharos:test validate

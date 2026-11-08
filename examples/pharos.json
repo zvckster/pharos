@@ -1,0 +1,28 @@
+{
+  "schema_version": 1,
+  "interval_seconds": 21600,
+  "checks": [
+    {
+      "id": "ntfy",
+      "name": "ntfy",
+      "source": {"type": "github", "repo": "binwiederhier/ntfy"},
+      "installed": {"type": "docker", "container": "ntfy", "use_tag": true}
+    },
+    {
+      "id": "caddy",
+      "name": "Caddy",
+      "source": {"type": "github", "repo": "caddyserver/caddy", "major": 2},
+      "installed": {"type": "dpkg", "package": "caddy"}
+    },
+    {
+      "id": "forgejo",
+      "source": {"type": "forgejo", "url": "https://codeberg.org/api/v1/repos/forgejo/forgejo/releases?limit=50"},
+      "installed": {"type": "unknown"},
+      "notify": false
+    }
+  ],
+  "notifications": [
+    {"id": "phone", "type": "ntfy", "url": "https://ntfy.example.org", "topic": "releases", "token_env": "PHAROS_NTFY_TOKEN"},
+    {"id": "mail", "type": "email", "host": "smtp.example.org", "port": 587, "security": "starttls", "username": "pharos", "password_env": "PHAROS_SMTP_PASSWORD", "from": "pharos@example.org", "to": ["you@example.org"]}
+  ]
+}

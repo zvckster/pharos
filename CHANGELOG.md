@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.0 — Unreleased
+## 0.1.0 — 2026-11-08 (alpha)
 
 Initial standalone alpha extracted from a personal release-monitoring workflow.
 

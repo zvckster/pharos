@@ -8,7 +8,7 @@ dist/
 .env
 .env.*
 !.env.example
-pharos.json
+/pharos.json
 state/
 *.log
 
