@@ -88,8 +88,6 @@ def load(path):
         required = {"static": "version", "docker": "container", "dpkg": "package", "rpm": "package"}
         if dtype in required:
             text(detector.get(required[dtype]), required[dtype])
-        if dtype == "static" and canonical(detector["version"]) is None:
-            raise ValueError("Static installed version is not a supported stable version")
         if dtype == "command":
             argv = detector.get("argv")
             if (
@@ -111,6 +109,13 @@ def load(path):
                 raise ValueError("Version pattern is not a valid regular expression") from None
             if groups < 1:
                 raise ValueError("Version pattern needs a capture group")
+        if dtype == "static":
+            raw = detector["version"]
+            if detector.get("pattern"):
+                match = re.search(detector["pattern"], raw)
+                raw = match.group(1) if match else None
+            if canonical(raw) is None:
+                raise ValueError("Static installed version is not a supported stable version")
         if "notify" in check and not isinstance(check["notify"], bool):
             raise ValueError("notify must be boolean")
         if "note" in check:

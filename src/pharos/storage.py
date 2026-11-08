@@ -47,8 +47,10 @@ def _strings(value):
     return isinstance(value, list) and all(isinstance(item, str) for item in value) and len(value) == len(set(value))
 
 
-def _release(value):
+def _release(value, *, require_url=False):
     if not isinstance(value, dict):
+        return False
+    if require_url and "url" not in value:
         return False
     version = value.get("version")
     return isinstance(version, str) and canonical(version) == version and isinstance(value.get("url", ""), str)
@@ -74,7 +76,7 @@ def read_state(directory):
         if (
             not isinstance(cache, dict)
             or not isinstance(cache.get("identity"), str)
-            or not _release(cache.get("release"))
+            or not _release(cache.get("release"), require_url=True)
         ):
             raise ValueError("Invalid source cache; refusing to overwrite")
         if (
@@ -102,7 +104,9 @@ def read_state(directory):
             if not isinstance(changes, list) or not changes:
                 raise ValueError("Invalid release event; refusing to overwrite")
             for change in changes:
-                if not _release(change) or any(not isinstance(change.get(field), str) for field in ("id", "name")):
+                if not _release(change, require_url=True) or any(
+                    not isinstance(change.get(field), str) for field in ("id", "name")
+                ):
                     raise ValueError("Invalid release change; refusing to overwrite")
                 if change.get("installed") is not None and not isinstance(change["installed"], str):
                     raise ValueError("Invalid installed version; refusing to overwrite")

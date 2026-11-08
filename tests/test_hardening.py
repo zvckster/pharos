@@ -359,3 +359,31 @@ class UpgradeRegression(unittest.TestCase):
         self.assertEqual(
             sources.parse({"type": "gitlab"}, [{"tag_name": "v1.2.3", "_links": ["unexpected"]}])["version"], "1.2.3"
         )
+
+
+class FinalReviewRegression(unittest.TestCase):
+    def test_static_extraction_pattern_validates_and_detects(self):
+        from pharos.config import load
+
+        detector = {"type": "static", "version": "app 1.2.3 runtime 4.5.6", "pattern": r"app ([0-9.]+)"}
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "config.json"
+            path.write_text(json.dumps({"schema_version": 1, "checks": [{**CHECK, "installed": detector}]}))
+            load(path)
+            self.assertEqual(detectors.detect(detector), "1.2.3")
+
+    def test_missing_pending_url_rejected_before_delivery(self):
+        state = {
+            "schema_version": 1,
+            "checks": {},
+            "sources": {},
+            "pending": [engine.event([{**RELEASE, "id": "app", "name": "App"}])],
+        }
+        del state["pending"][0]["changes"][0]["url"]
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "state.json"
+            write_json(path, state)
+            before = path.read_bytes()
+            with self.assertRaises(ValueError):
+                read_state(directory)
+            self.assertEqual(path.read_bytes(), before)
