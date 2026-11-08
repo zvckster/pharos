@@ -272,6 +272,14 @@ class DetectionAndConfig(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     config.load(path)
 
+    def test_invalid_regex_is_config_error(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "config.json"
+            check = {**CHECK, "installed": {"type": "command", "argv": ["app"], "pattern": "["}}
+            path.write_text(json.dumps({"schema_version": 1, "checks": [check]}))
+            with self.assertRaises(ValueError):
+                config.load(path)
+
     def test_example_valid(self):
         self.assertEqual(len(config.load(Path(__file__).parents[1] / "examples/pharos.json")["checks"]), 3)
 

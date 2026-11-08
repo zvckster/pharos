@@ -56,7 +56,11 @@ def load(path):
         ):
             raise ValueError(f"{ident}: command argv must be an array of strings")
         if detector.get("pattern"):
-            if re.compile(detector["pattern"]).groups < 1:
+            try:
+                groups = re.compile(detector["pattern"]).groups
+            except re.error:
+                raise ValueError(f"{ident}: version pattern is not a valid regular expression") from None
+            if groups < 1:
                 raise ValueError(f"{ident}: version pattern needs a capture group")
         for option in ("notify",):
             if option in check and not isinstance(check[option], bool):
